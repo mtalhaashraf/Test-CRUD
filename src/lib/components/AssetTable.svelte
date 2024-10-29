@@ -1,26 +1,27 @@
 <script lang="ts">
-	import * as Table from '$lib/components/ui/table';
-	import { createTable, Render, Subscribe, createRender } from 'svelte-headless-table';
+	import { createRender, createTable, Render, Subscribe } from 'svelte-headless-table';
 	import { addPagination, addSortBy, addTableFilter } from 'svelte-headless-table/plugins';
-	import { readable } from 'svelte/store';
-	import Actions from './Actions.svelte';
+	import { enhance } from '$app/forms';
+
+	import * as Table from '$lib/components/ui/table';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Select from '$lib/components/ui/select';
+
+	import AssetActions from './AssetActions.svelte';
 	import FlexColumn from './FlexColumn.svelte';
 	import TableAnchor from './TableAnchor.svelte';
-	import { Button } from './ui/button';
+	import { Button, buttonVariants } from './ui/button';
 	import { Input } from './ui/input';
+	import { Label } from './ui/label';
 
-	interface Asset {
-		id: number;
-		name: string;
-		file: string;
-		instructions: string[];
-		created_by: string;
-		updated_by: string;
-	}
+	import { assets } from '$lib/stores/asset';
+	import { loggedInUser } from '$lib/stores/user';
+	import { instructions } from '$lib/stores/instructions';
 
-	export let assets: Asset[] = [];
+	let creating = $state(false);
+	let open = $state(false);
 
-	const table = createTable(readable(assets), {
+	const table = createTable(assets, {
 		sort: addSortBy(),
 		page: addPagination(),
 		filter: addTableFilter({
@@ -61,7 +62,7 @@
 			accessor: 'instructions',
 			cell: ({ row }) => {
 				return createRender(FlexColumn, {
-					items: row.original.instructions
+					items: row.original.instructions.map((e) => e.title)
 				});
 			}
 		}),
@@ -92,9 +93,9 @@
 		table.column({
 			header: 'Actions',
 			accessor: ({ id }) => id,
-			cell: (item) =>
-				createRender(Actions, {
-					id: item.value
+			cell: ({ row }) =>
+				createRender(AssetActions, {
+					asset: row.original
 				})
 		})
 	]);
@@ -105,9 +106,77 @@
 	const { hasNextPage, hasPreviousPage, pageIndex } = pluginStates.page;
 
 	const { filterValue } = pluginStates.filter;
+
+	const handleCreate = ({ formData }) => {
+		selectedInstructions.forEach((instruction) => {
+			formData.append('instructions', instruction.value);
+		});
+		creating = true;
+		return async ({ result }) => {
+			if (result.type === 'success') {
+				assets.set(result.data.data);
+				open = false;
+				creating = false;
+			} else {
+				open = false;
+				creating = false;
+			}
+		};
+	};
+
+	let selectedInstructions: any[] = $state([]);
 </script>
 
-<Input class="max-w-sm my-2" placeholder="Filter assets..." type="text" bind:value={$filterValue} />
+<div class="my-2 flex w-full justify-between">
+	<Input class="max-w-sm" placeholder="Filter assets..." type="text" bind:value={$filterValue} />
+	<Dialog.Root bind:open>
+		<Dialog.Trigger class={buttonVariants({ variant: 'default' })} disabled={$loggedInUser == null}
+			>Create</Dialog.Trigger
+		>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Create Asset</Dialog.Title>
+				<Dialog.Description>Create a new asset</Dialog.Description>
+			</Dialog.Header>
+			<form action="?/create" method="post" class="flex flex-col gap-2" use:enhance={handleCreate}>
+				<input type="hidden" name="user_id" value={$loggedInUser?.id} />
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="name">Name</Label>
+					<Input id="name" name="name" class="col-span-3" required />
+				</div>
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="file">File</Label>
+					<Input id="file" name="file" class="col-span-3" required />
+				</div>
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="assets">Instructions</Label>
+					<div class="col-span-3 w-full">
+						<Select.Root multiple name="assets" bind:selected={selectedInstructions}>
+							<Select.Trigger class="w-full">
+								<Select.Value placeholder="Select instruction" />
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Group>
+									{#each $instructions as instruction}
+										<Select.Item value={instruction.id} label={instruction.title}>
+											{instruction.title}
+										</Select.Item>
+									{/each}
+								</Select.Group>
+							</Select.Content>
+							<Select.Input name="Select instruction" />
+						</Select.Root>
+					</div>
+				</div>
+				<div class="mt-3 flex justify-end border-t pt-3">
+					<Button type="submit" disabled={creating}>
+						{creating ? 'Creating...' : 'Save changes'}
+					</Button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Root>
+</div>
 
 <Table.Root {...$tableAttrs}>
 	<Table.Header>

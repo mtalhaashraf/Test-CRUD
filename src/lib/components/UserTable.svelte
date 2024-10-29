@@ -1,21 +1,20 @@
 <script lang="ts">
+	import { createRender, createTable, Render, Subscribe } from 'svelte-headless-table';
+	import { addPagination, addSortBy, addTableFilter } from 'svelte-headless-table/plugins';
+
+	import { enhance } from '$app/forms';
+	import UserActions from '$lib/components/UserActions.svelte';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
 	import * as Table from '$lib/components/ui/table';
-	import { createTable, Render, Subscribe, createRender } from 'svelte-headless-table';
-	import { addPagination, addTableFilter, addSortBy } from 'svelte-headless-table/plugins';
-	import { readable } from 'svelte/store';
-	import Actions from './Actions.svelte';
-	import { Button } from './ui/button';
-	import { Input } from './ui/input';
+	import { users } from '$lib/stores/user';
+	import { Label } from './ui/label';
 
-	interface User {
-		id: number;
-		name: string;
-		created_at: Date;
-	}
+	let open = $state(false);
+	let creatingUser = $state(false);
 
-	export let users: User[] = [];
-
-	const table = createTable(readable(users), {
+	const table = createTable(users, {
 		sort: addSortBy(),
 		page: addPagination(),
 		filter: addTableFilter({
@@ -42,7 +41,7 @@
 			header: 'Actions',
 			accessor: ({ id }) => id,
 			cell: (item) =>
-				createRender(Actions, {
+				createRender(UserActions, {
 					id: item.value
 				})
 		})
@@ -54,9 +53,50 @@
 	const { hasNextPage, hasPreviousPage, pageIndex } = pluginStates.page;
 
 	const { filterValue } = pluginStates.filter;
+
+	const handleCreateUser = () => {
+		creatingUser = true;
+		return async ({ result }) => {
+			if (result.type === 'success') {
+				users.set(result.data.data);
+				open = false;
+				creatingUser = false;
+			} else {
+				open = false;
+				creatingUser = false;
+			}
+		};
+	};
 </script>
 
-<Input class="max-w-sm my-2" placeholder="Filter users..." type="text" bind:value={$filterValue} />
+<div class="my-2 flex w-full justify-between">
+	<Input class="max-w-sm" placeholder="Filter users..." type="text" bind:value={$filterValue} />
+	<Dialog.Root bind:open>
+		<Dialog.Trigger class={buttonVariants({ variant: 'default' })}>Create</Dialog.Trigger>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Create User</Dialog.Title>
+				<Dialog.Description>Create a new user</Dialog.Description>
+			</Dialog.Header>
+			<form
+				action="?/create"
+				method="post"
+				class="flex flex-col gap-2"
+				use:enhance={handleCreateUser}
+			>
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="name">Name</Label>
+					<Input id="name" name="name" class="col-span-3" required />
+				</div>
+				<div class="mt-3 flex justify-end border-t pt-3">
+					<Button type="submit" disabled={creatingUser}>
+						{creatingUser ? 'Creating...' : 'Save changes'}
+					</Button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Root>
+</div>
 
 <Table.Root {...$tableAttrs}>
 	<Table.Header>

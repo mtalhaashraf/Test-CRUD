@@ -1,28 +1,28 @@
 <script lang="ts">
+	import { createRender, createTable, Render, Subscribe } from 'svelte-headless-table';
+	import { addPagination, addSortBy, addTableFilter } from 'svelte-headless-table/plugins';
+	import { enhance } from '$app/forms';
+
 	import * as Table from '$lib/components/ui/table';
-	import { createTable, Render, Subscribe, createRender } from 'svelte-headless-table';
-	import { addPagination, addTableFilter, addSortBy } from 'svelte-headless-table/plugins';
-	import { readable } from 'svelte/store';
-	import Actions from './Actions.svelte';
+	import * as Select from '$lib/components/ui/select';
+	import * as Dialog from '$lib/components/ui/dialog';
+
+	import StepActions from './StepActions.svelte';
 	import TableAnchor from './TableAnchor.svelte';
-	import { Button } from './ui/button';
+	import Textarea from './ui/textarea/textarea.svelte';
+	import { Button, buttonVariants } from './ui/button';
 	import { Input } from './ui/input';
+	import { Label } from './ui/label';
 
-	interface Step {
-		id: number;
-		title: string;
-		type: string;
-		description: string | null;
-		attached_file: string | null;
-		step_nr: number;
-		instruction: string | undefined;
-		created_by: string;
-		updated_by: string | undefined;
-	}
+	import { steps } from '$lib/stores/step';
+	import { loggedInUser } from '$lib/stores/user';
+	import { instructions } from '$lib/stores/instructions';
+	import TableParagraph from './TableParagraph.svelte';
 
-	export let steps: Step[] = [];
+	let creating = $state(false);
+	let open = $state(false);
 
-	const table = createTable(readable(steps), {
+	const table = createTable(steps, {
 		page: addPagination(),
 		sort: addSortBy(),
 		filter: addTableFilter({
@@ -39,13 +39,19 @@
 		table.column({
 			header: 'Instruction',
 			accessor: 'instruction',
-			plugins: {
-				filter: {
-					getFilterValue(value) {
-						return value.toLowerCase();
-					}
-				}
+			cell: ({ row }) => {
+				return createRender(TableParagraph, {
+					value: row.original.instruction.title
+				});
 			}
+
+			// plugins: {
+			// 	filter: {
+			// 		getFilterValue(value) {
+			// 			return value.toLowerCase();
+			// 		}
+			// 	}
+			// }
 		}),
 		table.column({
 			header: 'Step Number',
@@ -112,7 +118,7 @@
 			header: 'Actions',
 			accessor: ({ id }) => id,
 			cell: (item) =>
-				createRender(Actions, {
+				createRender(StepActions, {
 					id: item.value
 				})
 		})
@@ -124,9 +130,113 @@
 	const { hasNextPage, hasPreviousPage, pageIndex } = pluginStates.page;
 
 	const { filterValue } = pluginStates.filter;
+
+	const handleCreate = ({ formData }) => {
+		creating = true;
+		formData.set('instruction', selectedInstruction.value);
+		formData.set('type', type.value);
+		return async ({ result }) => {
+			if (result.type === 'success') {
+				steps.set(result.data.data);
+				open = false;
+				creating = false;
+			} else {
+				open = false;
+				creating = false;
+			}
+		};
+	};
+
+	let selectedInstruction: any = $state('');
+	let type: any = $state({ value: 'text', label: 'text', disabled: false });
 </script>
 
-<Input class="max-w-sm my-2" placeholder="Filter steps..." type="text" bind:value={$filterValue} />
+<div class="my-2 flex w-full justify-between">
+	<Input class="max-w-sm" placeholder="Filter steps..." type="text" bind:value={$filterValue} />
+	<Dialog.Root bind:open>
+		<Dialog.Trigger class={buttonVariants({ variant: 'default' })} disabled={$loggedInUser == null}
+			>Create</Dialog.Trigger
+		>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Create Step</Dialog.Title>
+				<Dialog.Description>Create a new step for instruction</Dialog.Description>
+			</Dialog.Header>
+			<form action="?/create" method="post" class="flex flex-col gap-2" use:enhance={handleCreate}>
+				<input type="hidden" name="user_id" value={$loggedInUser?.id} />
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="step_nr">Step #</Label>
+					<Input id="step_nr" name="step_nr" class="col-span-3" type="number" required />
+				</div>
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="title">Title</Label>
+					<Input id="title" name="title" class="col-span-3" required />
+				</div>
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="description">Description</Label>
+					<!-- <Input id="title" name="title" class="col-span-3" required /> -->
+					<Textarea
+						placeholder="Description"
+						id="description"
+						name="description"
+						class="col-span-3"
+					/>
+				</div>
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="type">Type</Label>
+					<div class="col-span-3 w-full">
+						<Select.Root name="type" bind:selected={type}>
+							<Select.Trigger class="w-full">
+								<Select.Value placeholder="Select type" />
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Group>
+									{#each ['text', 'image', 'video', 'pdf'] as _type}
+										<Select.Item value={_type} label={_type}>
+											{_type}
+										</Select.Item>
+									{/each}
+								</Select.Group>
+							</Select.Content>
+							<Select.Input name="Select type" />
+						</Select.Root>
+					</div>
+				</div>
+				{#if type.value != 'text'}
+					<div class="grid grid-cols-4 items-center gap-3">
+						<Label for="file">File</Label>
+						<Input id="file" name="file" class="col-span-3" required />
+					</div>
+				{/if}
+				<div class="grid grid-cols-4 items-center gap-3">
+					<Label for="assets">Instruction</Label>
+					<div class="col-span-3 w-full">
+						<Select.Root name="assets" bind:selected={selectedInstruction}>
+							<Select.Trigger class="w-full">
+								<Select.Value placeholder="Select instruction" />
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Group>
+									{#each $instructions as instruction}
+										<Select.Item value={instruction.id} label={instruction.title}>
+											{instruction.title}
+										</Select.Item>
+									{/each}
+								</Select.Group>
+							</Select.Content>
+							<Select.Input name="Select instruction" />
+						</Select.Root>
+					</div>
+				</div>
+				<div class="mt-3 flex justify-end border-t pt-3">
+					<Button type="submit" disabled={creating}>
+						{creating ? 'Creating...' : 'Save changes'}
+					</Button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Root>
+</div>
 
 <Table.Root {...$tableAttrs}>
 	<Table.Header>
