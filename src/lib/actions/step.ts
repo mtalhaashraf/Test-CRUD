@@ -11,6 +11,11 @@ export const fetchSteps = async () => {
 		where: {
 			deleted_at: {
 				equals: null
+			},
+			instruction: {
+				deleted_at: {
+					equals: null
+				}
 			}
 		}
 	});

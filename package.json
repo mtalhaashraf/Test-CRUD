@@ -33,6 +33,7 @@
 		"vite": "^5.0.3"
 	},
 	"dependencies": {
+		"@aws-sdk/client-s3": "^3.682.0",
 		"@prisma/client": "5.21.1",
 		"svelte-headless-table": "^0.18.3"
 	}

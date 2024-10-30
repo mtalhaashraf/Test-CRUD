@@ -18,6 +18,8 @@
 	import { loggedInUser } from '$lib/stores/user';
 	import { instructions } from '$lib/stores/instructions';
 	import TableParagraph from './TableParagraph.svelte';
+	import SearchInput from './SearchInput.svelte';
+	import { ArrowLeft, ArrowRight, Plus } from 'lucide-svelte';
 
 	let creating = $state(false);
 	let open = $state(false);
@@ -89,7 +91,10 @@
 			accessor: 'attached_file',
 			header: 'Attached File',
 			cell: ({ row }) => {
-				return createRender(TableAnchor, { value: row.original.attached_file });
+				return createRender(TableAnchor, {
+					value: row.original.attached_file,
+					href: `/steps/${row.original.attached_file}`
+				});
 			}
 		}),
 		table.column({
@@ -132,37 +137,50 @@
 	const { filterValue } = pluginStates.filter;
 
 	const handleCreate = ({ formData }) => {
-		creating = true;
-		formData.set('instruction', selectedInstruction.value);
-		formData.set('type', type.value);
-		return async ({ result }) => {
-			if (result.type === 'success') {
-				steps.set(result.data.data);
-				open = false;
-				creating = false;
-			} else {
-				open = false;
-				creating = false;
-			}
-		};
+		if (selectedInstruction) {
+			creating = true;
+			formData.set('instruction', selectedInstruction.value);
+			formData.set('type', type.value);
+			return async ({ result }) => {
+				if (result.type === 'success') {
+					steps.set(result.data.data);
+					open = false;
+					creating = false;
+				} else {
+					open = false;
+					creating = false;
+				}
+			};
+		}else {
+			console.error("Missing instruction")
+		}
 	};
 
-	let selectedInstruction: any = $state('');
+	let selectedInstruction = $state({
+		value: $instructions[0]?.id || null,
+		label: $instructions[0]?.title||'Select instruction'
+	});
 	let type: any = $state({ value: 'text', label: 'text', disabled: false });
 </script>
 
-<div class="my-2 flex w-full justify-between">
-	<Input class="max-w-sm" placeholder="Filter steps..." type="text" bind:value={$filterValue} />
-	<Dialog.Root bind:open>
-		<Dialog.Trigger class={buttonVariants({ variant: 'default' })} disabled={$loggedInUser == null}
-			>Create</Dialog.Trigger
-		>
+<div class="py-6 px-8 flex w-full justify-between">
+	<SearchInput bind:value={$filterValue} />
+		<Dialog.Root bind:open>
+			<Dialog.Trigger class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2" disabled={$loggedInUser == null}>
+				<Plus size={16} /> Create
+			</Dialog.Trigger>
 		<Dialog.Content>
 			<Dialog.Header>
 				<Dialog.Title>Create Step</Dialog.Title>
 				<Dialog.Description>Create a new step for instruction</Dialog.Description>
 			</Dialog.Header>
-			<form action="?/create" method="post" class="flex flex-col gap-2" use:enhance={handleCreate}>
+			<form
+				action="?/create"
+				method="post"
+				class="flex flex-col gap-2"
+				use:enhance={handleCreate}
+				enctype="multipart/form-data"
+			>
 				<input type="hidden" name="user_id" value={$loggedInUser?.id} />
 				<div class="grid grid-cols-4 items-center gap-3">
 					<Label for="step_nr">Step #</Label>
@@ -180,12 +198,13 @@
 						id="description"
 						name="description"
 						class="col-span-3"
+						required
 					/>
 				</div>
 				<div class="grid grid-cols-4 items-center gap-3">
 					<Label for="type">Type</Label>
 					<div class="col-span-3 w-full">
-						<Select.Root name="type" bind:selected={type}>
+						<Select.Root name="type" required bind:selected={type}>
 							<Select.Trigger class="w-full">
 								<Select.Value placeholder="Select type" />
 							</Select.Trigger>
@@ -205,18 +224,32 @@
 				{#if type.value != 'text'}
 					<div class="grid grid-cols-4 items-center gap-3">
 						<Label for="file">File</Label>
-						<Input id="file" name="file" class="col-span-3" required />
+						<Input
+							id="file"
+							name="file"
+							class="col-span-3"
+							required
+							type="file"
+							accept={type.value === 'image'
+								? 'image/*'
+								: type.value === 'video'
+									? 'video/*'
+									: 'application/pdf'}
+						/>
 					</div>
 				{/if}
 				<div class="grid grid-cols-4 items-center gap-3">
-					<Label for="assets">Instruction</Label>
+					<Label for="instruction">Instruction</Label>
 					<div class="col-span-3 w-full">
-						<Select.Root name="assets" bind:selected={selectedInstruction}>
+						<Select.Root name="instruction" bind:selected={selectedInstruction}>
 							<Select.Trigger class="w-full">
 								<Select.Value placeholder="Select instruction" />
 							</Select.Trigger>
 							<Select.Content>
 								<Select.Group>
+									<Select.Item value={null} label="Select instruction" disabled>
+										Select instruction
+									  </Select.Item>
 									{#each $instructions as instruction}
 										<Select.Item value={instruction.id} label={instruction.title}>
 											{instruction.title}
@@ -245,7 +278,13 @@
 				<Table.Row>
 					{#each headerRow.cells as cell (cell.id)}
 						<Subscribe attrs={cell.attrs()} let:attrs props={cell.props()} let:props>
-							<Table.Head {...attrs}><Render of={cell.render()} /></Table.Head>
+							<Table.Head 
+								class={`bg-gray-100/80 ${cell.id === 'Actions' ? 'text-right pr-24' : ''}`} 
+								{...attrs} 
+								{...props}
+							>
+								<Render of={cell.render()} />
+							</Table.Head>
 						</Subscribe>
 					{/each}
 				</Table.Row>
@@ -269,17 +308,23 @@
 		{/each}
 	</Table.Body>
 </Table.Root>
-<div class="mt-2 flex items-center justify-end gap-2">
+<div class="py-6 px-8 flex gap-2 items-end justify-end w-full">
 	<Button
 		variant="outline"
 		size="sm"
 		on:click={() => ($pageIndex = $pageIndex - 1)}
-		disabled={!$hasPreviousPage}>Previous</Button
+		disabled={!$hasPreviousPage}
+		class="flex items-center gap-2"
 	>
+		<ArrowLeft size={16} /> Previous
+	</Button>
 	<Button
 		variant="outline"
 		size="sm"
 		disabled={!$hasNextPage}
-		on:click={() => ($pageIndex = $pageIndex + 1)}>Next</Button
+		on:click={() => ($pageIndex = $pageIndex + 1)}
+		class="flex items-center gap-2"
 	>
+		Next <ArrowRight size={16} />
+	</Button>
 </div>

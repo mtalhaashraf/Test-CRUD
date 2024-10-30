@@ -10,6 +10,4 @@
 	assets.set(data.assets);
 </script>
 
-<Tabs.Content value="/instruction">
-	<InstructionTable />
-</Tabs.Content>
+<InstructionTable />

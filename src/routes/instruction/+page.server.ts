@@ -1,6 +1,7 @@
 import { fetchAssets } from '$lib/actions/asset';
 import { fetchInstructions } from '$lib/actions/instruction';
 import prisma from '$lib/prisma';
+import { saveImage } from '$lib/s3-client';
 
 export const load = async () => {
 	const assets = await fetchAssets();
@@ -35,11 +36,10 @@ export const actions = {
 			return { success: false, error: 'Duration must be greater than 0', data: null };
 		}
 
-		await prisma.instruction.create({
+		const newInstruction = await prisma.instruction.create({
 			data: {
 				title: title.toString(),
 				description: description.toString(),
-				preview: preview.toString(),
 				duration: duration_num,
 				created_by: Number(user_id),
 				created_at: new Date(),
@@ -50,6 +50,34 @@ export const actions = {
 				}
 			}
 		});
+
+		const filename = `${newInstruction.title.toLocaleLowerCase().replaceAll(' ', '_')}_${newInstruction.id}.${preview!.name.split('.').pop()}`;
+		const respFile = await saveImage(
+			`instructions/${filename}`,
+			'crud',
+			Buffer.from(await preview!.arrayBuffer(), 'utf-8'),
+			preview!.type
+		);
+
+		if (respFile.error) {
+			await prisma.instruction.delete({ where: { id: newInstruction.id } });
+			return {
+				success: false,
+				error: 'Issue uploading file to storage,',
+				data: null
+			};
+		}
+
+		if (respFile.success) {
+			await prisma.instruction.update({
+				where: {
+					id: newInstruction.id
+				},
+				data: {
+					preview: filename
+				}
+			});
+		}
 
 		const data = await fetchInstructions();
 
@@ -70,7 +98,7 @@ export const actions = {
 		const assets = formData.getAll('assets');
 		const user_id = formData.get('user_id');
 
-		if (!title || !description || !preview || !duration || !assets || !user_id) {
+		if (!title || !description || !duration || !assets || !user_id) {
 			return { success: false, error: 'Missing required fields', data: null };
 		}
 
@@ -86,14 +114,13 @@ export const actions = {
 		const removeLinks = prev_assets.filter((item) => !assets.includes(item));
 		const addLinks = assets.filter((item) => !prev_assets.includes(item));
 
-		await prisma.instruction.update({
+		const editedInstruction = await prisma.instruction.update({
 			where: {
 				id: Number(id)
 			},
 			data: {
 				title: title.toString(),
 				description: description.toString(),
-				preview: preview.toString(),
 				duration: duration_num,
 				updated_by: Number(user_id),
 				updated_at: new Date(),
@@ -113,6 +140,39 @@ export const actions = {
 				}
 			}
 		});
+
+		if (preview) {
+			const filename = `${editedInstruction.title
+				.toLocaleLowerCase()
+				.replaceAll(' ', '_')}_${editedInstruction.id}.${preview.name.split('.').pop()}`;
+			const respFile = await saveImage(
+				`instructions/${filename}`,
+				'crud',
+				Buffer.from(await preview.arrayBuffer(), 'utf-8'),
+				preview.type
+			);
+
+			if (respFile.error) {
+				const data = await fetchInstructions();
+
+				return {
+					success: true,
+					error: 'Issue uploading file to storage,',
+					data
+				};
+			}
+
+			if (respFile.success) {
+				await prisma.instruction.update({
+					where: {
+						id: editedInstruction.id
+					},
+					data: {
+						preview: filename
+					}
+				});
+			}
+		}
 
 		const data = await fetchInstructions();
 

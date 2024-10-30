@@ -1,11 +1,12 @@
 import { fetchInstructions } from '$lib/actions/instruction';
 import { fetchSteps } from '$lib/actions/step';
 import prisma from '$lib/prisma';
+import { saveImage } from '$lib/s3-client.js';
 
 export const load = async () => {
 	const steps = await fetchSteps();
 	const instructions = await fetchInstructions();
-
+console.log('Steps >> ',steps)
 	return {
 		steps,
 		instructions
@@ -27,20 +28,19 @@ export const actions = {
 			return { success: false, error: 'Missing required fields', data: null };
 		}
 
-		if (type.toString() !== 'text' && !attached_file) {
-			return { success: false, error: 'Attached file is required', data: null };
-		}
-
 		if (!['text', 'pdf', 'image', 'video'].includes(type.toString())) {
 			return { success: false, error: 'Invalid type', data: null };
 		}
 
-		await prisma.step.create({
+		if (type.toString() !== 'text' && !attached_file) {
+			return { success: false, error: 'Attached file is required', data: null };
+		}
+
+		const newStep = await prisma.step.create({
 			data: {
 				title: title.toString(),
 				type: type.toString() as any,
 				description: description?.toString() || null,
-				attached_file: attached_file?.toString() || null,
 				step_nr: Number(step_nr),
 				instruction_id: Number(instruction) || null,
 				created_by: Number(user_id),
@@ -48,6 +48,36 @@ export const actions = {
 			}
 		});
 
+		if (type.toString() !== 'text') {
+
+			const filename = `${newStep.title.toLocaleLowerCase().replaceAll(' ', '_')}_${newStep.id}.${attached_file?.name.split('.').pop()}`;
+			const respFile = await saveImage(
+				`steps/${filename}`,
+				'crud',
+				Buffer.from(await attached_file!.arrayBuffer(), 'utf-8'),
+				attached_file!.type
+			);
+	
+			if (respFile.error) {
+				await prisma.step.delete({ where: { id: newStep.id } });
+				return {
+					success: false,
+					error: 'Issue saving file to S3. Please try again',
+					data: null
+				};
+			}
+	
+			if (respFile.success) {
+				await prisma.step.update({
+					where: {
+						id: newStep.id
+					},
+					data: {
+						attached_file: filename
+					}
+				});
+			}
+		}
 		const data = await fetchSteps();
 
 		return {
@@ -71,15 +101,15 @@ export const actions = {
 			return { success: false, error: 'Missing required fields', data: null };
 		}
 
-		if (type.toString() !== 'text' && !attached_file) {
-			return { success: false, error: 'Attached file is required', data: null };
-		}
+		// if (type.toString() !== 'text' && !attached_file) {
+		// 	return { success: false, error: 'Attached file is required', data: null };
+		// }
 
 		if (!['text', 'pdf', 'image', 'video'].includes(type.toString())) {
 			return { success: false, error: 'Invalid type', data: null };
 		}
 
-		await prisma.step.update({
+		const editedStep = await prisma.step.update({
 			where: {
 				id: Number(id)
 			},
@@ -87,13 +117,54 @@ export const actions = {
 				title: title.toString(),
 				type: type.toString() as any,
 				description: description?.toString() || null,
-				attached_file: type.toString() === 'text' ? null : attached_file?.toString() || null,
 				step_nr: Number(step_nr),
 				instruction_id: Number(instruction) || null,
 				updated_by: Number(user_id),
 				updated_at: new Date()
 			}
 		});
+
+		if (attached_file && type.toString() !== 'text') {
+			const filename = `${editedStep.title
+				.toString()
+				.toLocaleLowerCase()
+				.replaceAll(' ', '_')}_${editedStep.id}.${attached_file.name.split('.').pop()}`;
+			const respFile = await saveImage(
+				`steps/${filename}`,
+				'crud',
+				Buffer.from(await attached_file.arrayBuffer(), 'utf-8'),
+				attached_file.type
+			);
+
+			if (respFile.error) {
+				const data = fetchSteps()
+				return {
+					success: true,
+					error: 'Issue saving file to S3. Please try again',
+					data
+				};
+			}
+
+			if (respFile.success) {
+				await prisma.step.update({
+					where: {
+						id: editedStep.id
+					},
+					data: {
+						attached_file: filename
+					}
+				});
+			}
+		} else {
+			await prisma.step.update({
+				where: {
+					id: editedStep.id
+				},
+				data: {
+					attached_file: null
+				}
+			});
+		}
 
 		const data = await fetchSteps();
 

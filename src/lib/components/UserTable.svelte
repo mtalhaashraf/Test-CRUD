@@ -10,6 +10,8 @@
 	import * as Table from '$lib/components/ui/table';
 	import { users } from '$lib/stores/user';
 	import { Label } from './ui/label';
+	import SearchInput from './SearchInput.svelte';
+	import { ArrowLeft, ArrowRight, Plus } from 'lucide-svelte';
 
 	let open = $state(false);
 	let creatingUser = $state(false);
@@ -69,10 +71,14 @@
 	};
 </script>
 
-<div class="my-2 flex w-full justify-between">
-	<Input class="max-w-sm" placeholder="Filter users..." type="text" bind:value={$filterValue} />
+<div class="flex w-full justify-between px-8 py-6">
+	<SearchInput bind:value={$filterValue} />
 	<Dialog.Root bind:open>
-		<Dialog.Trigger class={buttonVariants({ variant: 'default' })}>Create</Dialog.Trigger>
+		<Dialog.Trigger
+			class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white"
+		>
+			<Plus size={16} /> Create
+		</Dialog.Trigger>
 		<Dialog.Content>
 			<Dialog.Header>
 				<Dialog.Title>Create User</Dialog.Title>
@@ -105,7 +111,13 @@
 				<Table.Row>
 					{#each headerRow.cells as cell (cell.id)}
 						<Subscribe attrs={cell.attrs()} let:attrs props={cell.props()} let:props>
-							<Table.Head {...attrs}><Render of={cell.render()} /></Table.Head>
+							<Table.Head
+								class={`bg-gray-100/80 ${cell.id === 'Actions' ? 'pr-24 text-right' : ''}`}
+								{...attrs}
+								{...props}
+							>
+								<Render of={cell.render()} />
+							</Table.Head>
 						</Subscribe>
 					{/each}
 				</Table.Row>
@@ -130,17 +142,23 @@
 	</Table.Body>
 </Table.Root>
 
-<div class="mt-2 flex items-center justify-end gap-2">
+<div class="flex w-full items-end justify-end gap-2 px-8 py-6">
 	<Button
 		variant="outline"
 		size="sm"
 		on:click={() => ($pageIndex = $pageIndex - 1)}
-		disabled={!$hasPreviousPage}>Previous</Button
+		disabled={!$hasPreviousPage}
+		class="flex items-center gap-2"
 	>
+		<ArrowLeft size={16} /> Previous
+	</Button>
 	<Button
 		variant="outline"
 		size="sm"
 		disabled={!$hasNextPage}
-		on:click={() => ($pageIndex = $pageIndex + 1)}>Next</Button
+		on:click={() => ($pageIndex = $pageIndex + 1)}
+		class="flex items-center gap-2"
 	>
+		Next <ArrowRight size={16} />
+	</Button>
 </div>

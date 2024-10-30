@@ -12,7 +12,7 @@ datasource db {
 model user {
   id                                       BigInt        @id @default(autoincrement())
   created_at                               DateTime      @default(now()) @db.Timestamptz(6)
-  name                                     String        @unique
+  name                                     String
   updated_at                               DateTime?     @db.Timestamptz(6)
   deleted_at                               DateTime?     @db.Timestamptz(6)
   asset_asset_created_byTouser             asset[]       @relation("asset_created_byTouser")
@@ -31,7 +31,7 @@ model asset {
   id                                               BigInt              @id @default(autoincrement())
   created_at                                       DateTime            @default(now()) @db.Timestamptz(6)
   name                                             String
-  file                                             String
+  file                                             String?
   created_by                                       BigInt
   updated_by                                       BigInt?
   deleted_at                                       DateTime?           @db.Timestamptz(6)

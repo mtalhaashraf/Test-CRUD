@@ -12,6 +12,7 @@
 	import { loggedInUser } from '$lib/stores/user';
 	import { instructions } from '$lib/stores/instructions';
 	import { steps } from '$lib/stores/step';
+	import { PUBLIC_ENDPOINT } from '$env/static/public';
 
 	export let id;
 
@@ -83,7 +84,13 @@
 				<Dialog.Title>Edit Step</Dialog.Title>
 				<Dialog.Description>Edit an existing step</Dialog.Description>
 			</Dialog.Header>
-			<form action="?/edit" method="post" class="flex flex-col gap-2" use:enhance={handleEdit}>
+			<form
+				action="?/edit"
+				method="post"
+				class="flex flex-col gap-2"
+				use:enhance={handleEdit}
+				enctype="multipart/form-data"
+			>
 				<input type="hidden" name="user_id" value={$loggedInUser?.id} />
 				<input type="hidden" name="id" value={id} />
 				<div class="grid grid-cols-4 items-center gap-3">
@@ -135,7 +142,28 @@
 				{#if type.value != 'text'}
 					<div class="grid grid-cols-4 items-center gap-3">
 						<Label for="file">File</Label>
-						<Input id="file" name="file" class="col-span-3" required bind:value={file} />
+						<div class="col-span-3 flex w-full flex-col gap-1">
+							<Input
+								id="file"
+								name="file"
+								class="col-span-3"
+								type="file"
+								accept={type.value === 'image'
+									? 'image/*'
+									: type.value === 'video'
+										? 'video/*'
+										: 'application/pdf'}
+							/>
+							{#if file}
+								<a
+									href={`${PUBLIC_ENDPOINT}/steps/${file}`}
+									target="_blank"
+									class="ml-1 w-max text-sm text-muted-foreground underline"
+								>
+									{file}
+								</a>
+							{/if}
+						</div>
 					</div>
 				{/if}
 				<div class="grid grid-cols-4 items-center gap-3">

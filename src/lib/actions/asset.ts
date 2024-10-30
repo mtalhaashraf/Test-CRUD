@@ -8,7 +8,7 @@ export const fetchAssets = async () => {
 					instruction_asset_instruction_instructionToinstruction: {
 						select: {
 							title: true,
-							id: true
+							id: true,
 						}
 					}
 				}

@@ -18,6 +18,8 @@
 	import { Input } from './ui/input';
 	import { Label } from './ui/label';
 	import { Textarea } from './ui/textarea';
+	import SearchInput from './SearchInput.svelte';
+	import { ArrowLeft, ArrowRight, Plus } from 'lucide-svelte';
 
 	let open = $state(false);
 	let creating = $state(false);
@@ -68,7 +70,8 @@
 			accessor: 'preview',
 			cell: ({ row }) => {
 				return createRender(TableAnchor, {
-					value: row.original.preview
+					value: row.original.preview,
+					href: `/instructions/${row.original.preview}`
 				});
 			}
 		}),
@@ -143,23 +146,24 @@
 	let selectedAssets: any[] = $state([]);
 </script>
 
-<div class="my-2 flex w-full justify-between">
-	<Input
-		class="max-w-sm"
-		placeholder="Filter instructions..."
-		type="text"
-		bind:value={$filterValue}
-	/>
+<div class="py-6 px-8 flex w-full justify-between">
+	<SearchInput bind:value={$filterValue} />
 	<Dialog.Root bind:open>
-		<Dialog.Trigger class={buttonVariants({ variant: 'default' })} disabled={$loggedInUser == null}
-			>Create</Dialog.Trigger
-		>
+		<Dialog.Trigger class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2" disabled={$loggedInUser == null}>
+			<Plus size={16} /> Create
+		</Dialog.Trigger>
 		<Dialog.Content>
 			<Dialog.Header>
 				<Dialog.Title>Create Instruction</Dialog.Title>
 				<Dialog.Description>Create a new instruction</Dialog.Description>
 			</Dialog.Header>
-			<form action="?/create" method="post" class="flex flex-col gap-2" use:enhance={handleCreate}>
+			<form
+				action="?/create"
+				method="post"
+				class="flex flex-col gap-2"
+				use:enhance={handleCreate}
+				enctype="multipart/form-data"
+			>
 				<input type="hidden" name="user_id" value={$loggedInUser?.id} />
 				<div class="grid grid-cols-4 items-center gap-3">
 					<Label for="title">Title</Label>
@@ -182,7 +186,7 @@
 				</div>
 				<div class="grid grid-cols-4 items-center gap-3">
 					<Label for="file">File</Label>
-					<Input id="file" name="file" class="col-span-3" required />
+					<Input id="file" name="file" class="col-span-3" type="file" required accept="image/*" />
 				</div>
 				<div class="grid grid-cols-4 items-center gap-3">
 					<Label for="assets">Assets</Label>
@@ -218,7 +222,13 @@
 				<Table.Row>
 					{#each headerRow.cells as cell (cell.id)}
 						<Subscribe attrs={cell.attrs()} let:attrs props={cell.props()} let:props>
-							<Table.Head {...attrs}><Render of={cell.render()} /></Table.Head>
+							<Table.Head 
+								class={`bg-gray-100/80 ${cell.id === 'Actions' ? 'text-right pr-24' : ''}`} 
+								{...attrs} 
+								{...props}
+							>
+								<Render of={cell.render()} />
+							</Table.Head>
 						</Subscribe>
 					{/each}
 				</Table.Row>
@@ -243,17 +253,23 @@
 	</Table.Body>
 </Table.Root>
 
-<div class="mt-2 flex items-center justify-end gap-2">
+<div class="py-6 px-8 flex gap-2 items-end justify-end w-full">
 	<Button
 		variant="outline"
 		size="sm"
 		on:click={() => ($pageIndex = $pageIndex - 1)}
-		disabled={!$hasPreviousPage}>Previous</Button
+		disabled={!$hasPreviousPage}
+		class="flex items-center gap-2"
 	>
+		<ArrowLeft size={16} /> Previous
+	</Button>
 	<Button
 		variant="outline"
 		size="sm"
 		disabled={!$hasNextPage}
-		on:click={() => ($pageIndex = $pageIndex + 1)}>Next</Button
+		on:click={() => ($pageIndex = $pageIndex + 1)}
+		class="flex items-center gap-2"
 	>
+		Next <ArrowRight size={16} />
+	</Button>
 </div>

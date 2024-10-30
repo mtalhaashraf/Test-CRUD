@@ -45,7 +45,7 @@
 	};
 </script>
 
-<div class="flex items-center gap-2">
+<div class="flex justify-end gap-2">
 	<Dialog.Root bind:open={editModalOpen}>
 		<Dialog.Trigger class={buttonVariants({ variant: 'secondary' })}>Edit</Dialog.Trigger>
 		<Dialog.Content>

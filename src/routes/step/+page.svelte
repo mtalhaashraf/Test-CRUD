@@ -9,6 +9,4 @@
 	instructions.set(data.instructions);
 </script>
 
-<Tabs.Content value="/step">
-	<StepTable />
-</Tabs.Content>
+<StepTable />
