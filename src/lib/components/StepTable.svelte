@@ -290,7 +290,7 @@
 								{...props}
 							>
 								{#if sortableColumns.includes(cell.id)}
-									<Button variant="ghost" on:click={props.sort.toggle}>
+									<Button variant="ghost" class="pl-0" on:click={props.sort.toggle}>
 										<Render of={cell.render()} />
 										<ArrowUpDown class="ml-2 h-4 w-4" />
 									</Button>
