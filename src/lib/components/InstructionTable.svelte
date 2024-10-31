@@ -19,7 +19,7 @@
 	import { Label } from './ui/label';
 	import { Textarea } from './ui/textarea';
 	import SearchInput from './SearchInput.svelte';
-	import { ArrowLeft, ArrowRight, Plus } from 'lucide-svelte';
+	import { ArrowLeft, ArrowRight, ArrowUpDown, Plus } from 'lucide-svelte';
 
 	let open = $state(false);
 	let creating = $state(false);
@@ -31,6 +31,8 @@
 			fn: ({ filterValue, value }) => value.includes(filterValue)
 		})
 	});
+
+	const sortableColumns = ['title', 'id', 'duration', 'created_by', 'updated_by'];
 
 	const columns = table.createColumns([
 		table.column({
@@ -146,10 +148,13 @@
 	let selectedAssets: any[] = $state([]);
 </script>
 
-<div class="py-6 px-8 flex w-full justify-between">
+<div class="flex w-full justify-between px-8 py-6">
 	<SearchInput bind:value={$filterValue} />
 	<Dialog.Root bind:open>
-		<Dialog.Trigger class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2" disabled={$loggedInUser == null}>
+		<Dialog.Trigger
+			class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white"
+			disabled={$loggedInUser == null}
+		>
 			<Plus size={16} /> Create
 		</Dialog.Trigger>
 		<Dialog.Content>
@@ -222,12 +227,19 @@
 				<Table.Row>
 					{#each headerRow.cells as cell (cell.id)}
 						<Subscribe attrs={cell.attrs()} let:attrs props={cell.props()} let:props>
-							<Table.Head 
-								class={`bg-gray-100/80 ${cell.id === 'Actions' ? 'text-right pr-24' : ''}`} 
-								{...attrs} 
+							<Table.Head
+								class={`bg-gray-100/80 ${cell.id === 'Actions' ? 'pr-24 text-right' : ''}`}
+								{...attrs}
 								{...props}
 							>
-								<Render of={cell.render()} />
+								{#if sortableColumns.includes(cell.id)}
+									<Button variant="ghost" on:click={props.sort.toggle}>
+										<Render of={cell.render()} />
+										<ArrowUpDown class="ml-2 h-4 w-4" />
+									</Button>
+								{:else}
+									<Render of={cell.render()} />
+								{/if}
 							</Table.Head>
 						</Subscribe>
 					{/each}
@@ -253,7 +265,7 @@
 	</Table.Body>
 </Table.Root>
 
-<div class="py-6 px-8 flex gap-2 items-end justify-end w-full">
+<div class="flex w-full items-end justify-end gap-2 px-8 py-6">
 	<Button
 		variant="outline"
 		size="sm"

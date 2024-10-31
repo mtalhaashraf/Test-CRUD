@@ -11,7 +11,7 @@
 	import { users } from '$lib/stores/user';
 	import { Label } from './ui/label';
 	import SearchInput from './SearchInput.svelte';
-	import { ArrowLeft, ArrowRight, Plus } from 'lucide-svelte';
+	import { ArrowLeft, ArrowRight, ArrowUpDown, Plus } from 'lucide-svelte';
 
 	let open = $state(false);
 	let creatingUser = $state(false);
@@ -23,6 +23,9 @@
 			fn: ({ filterValue, value }) => value.includes(filterValue)
 		})
 	});
+
+	const sortableColumns = ['id', 'name'];
+
 	const columns = table.createColumns([
 		table.column({
 			header: 'ID',
@@ -74,9 +77,7 @@
 <div class="flex w-full justify-between px-8 py-6">
 	<SearchInput bind:value={$filterValue} />
 	<Dialog.Root bind:open>
-		<Dialog.Trigger
-			class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white"
-		>
+		<Dialog.Trigger class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white">
 			<Plus size={16} /> Create
 		</Dialog.Trigger>
 		<Dialog.Content>
@@ -116,7 +117,14 @@
 								{...attrs}
 								{...props}
 							>
-								<Render of={cell.render()} />
+								{#if sortableColumns.includes(cell.id)}
+									<Button variant="ghost" on:click={props.sort.toggle}>
+										<Render of={cell.render()} />
+										<ArrowUpDown class="ml-2 h-4 w-4" />
+									</Button>
+								{:else}
+									<Render of={cell.render()} />
+								{/if}
 							</Table.Head>
 						</Subscribe>
 					{/each}
